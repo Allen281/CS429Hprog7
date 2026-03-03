@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import os
 
 def main():
-    policies = ['First_Fit', 'Best_Fit', 'Worst_Fit']
-    colors = {'First_Fit': 'blue', 'Best_Fit': 'green', 'Worst_Fit': 'red'}
+    policies = ['First_Fit', 'Best_Fit', 'Worst_Fit', 'Mixed', 'Buddy']
+    colors = {'First_Fit': 'blue', 'Best_Fit': 'green', 'Worst_Fit': 'red', 'Mixed': 'orange', 'Buddy': 'purple'}
 
     # =========================================================================
     # GRAPH 1: Speed vs Size (Log-Log Scale)

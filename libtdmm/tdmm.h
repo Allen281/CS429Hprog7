@@ -11,6 +11,7 @@ struct header {
     size_t size;
     header* next;
     header* prev;
+    header* block_start;
 };
 
 typedef enum {

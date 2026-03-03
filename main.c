@@ -107,6 +107,12 @@ int main() {
     srand(random);
     run_benchmarks_for_policy(WORST_FIT, "Worst_Fit", average_util, overhead);
     
+    srand(random);
+    run_benchmarks_for_policy(MIXED, "Mixed", average_util, overhead);
+    
+    srand(random);
+    run_benchmarks_for_policy(BUDDY, "Buddy", average_util, overhead);
+    
     fclose(average_util);
     fclose(overhead);
 
