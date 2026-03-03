@@ -1,15 +1,20 @@
 #include "tdmm.h"
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <string.h>
+
+#define IS_MMAP_ROOT(x) ((x)->size & 2ULL)
+#define SET_MMAP_ROOT(x) ((x)->size |= 2ULL)
 
 #define IS_FREE(x) ((x)->size & 1)
 #define SET_FREE(x, y) ((x)->size = ((x)->size & ~1ULL) | (y))
 
-#define GET_SIZE(x) ((x)->size & ~1ULL)
-#define SET_SIZE(x, y) ((x)->size = (y) | IS_FREE(x))
+#define GET_SIZE(x) ((x)->size & ~3ULL)
+#define SET_SIZE(x, y) ((x)->size = (y) | ((x)->size & 3ULL))
 
 #define MAX_BUDDY_ORDER 24
 
@@ -83,7 +88,7 @@ static inline void split_block(header* block, size_t total_size) {
         
         size_t current_size = GET_SIZE(block) + sizeof(header);
         
-        while(total_size <= (current_size >> 1) && (current_size >> 1) - sizeof(header) > 0) {
+        while(total_size <= (current_size >> 1) && (current_size >> 1) > sizeof(header)) {
             current_size >>= 1;
             
             header* buddy_block = (header*)((char*)block + current_size);
@@ -91,6 +96,7 @@ static inline void split_block(header* block, size_t total_size) {
             buddy_block->block_start = block->block_start;
             
             add_to_buddy_bucket(buddy_block);
+            data_structure_overhead += sizeof(header);
         }
         
         SET_FREE(block, 0);
@@ -151,8 +157,10 @@ void t_init(alloc_strat_e strat) {
     header* initial_block = make_new_block(NULL, page_size);
     
     if(strategy == BUDDY) {
+        memset(buddy_lists, 0, sizeof(buddy_lists));
+        
         size_t current_size = page_size/2;
-        while(current_size-sizeof(header) > 1) {
+        while(current_size > sizeof(header)) {
             header* buddy_block = (header*)((char*)initial_block + current_size);
             set_block_state(buddy_block, true, current_size - sizeof(header), NULL, NULL);
             buddy_block->block_start = initial_block;
@@ -163,6 +171,7 @@ void t_init(alloc_strat_e strat) {
         
         set_block_state(initial_block, true, (current_size*2)-sizeof(header), NULL, NULL);
         initial_block->block_start = initial_block;
+        SET_MMAP_ROOT(initial_block);
         add_to_buddy_bucket(initial_block);
     } else {
         set_block_state(initial_block, true, page_size - sizeof(header), NULL, NULL);
@@ -193,6 +202,9 @@ void *t_malloc(size_t size) {
             
             set_block_state(new_block, true, allocation_size - sizeof(header), NULL, NULL);
             new_block->block_start = new_block;
+            
+            block = new_block;
+            SET_MMAP_ROOT(block);
         } else {
             allocation_size = (aligned_size + page_size - 1) & ~(page_size - 1);
             void* endptr = (char*)headers_end + sizeof(header) + GET_SIZE(headers_end);
@@ -215,12 +227,13 @@ void *t_malloc(size_t size) {
 }
 
 static void merge_buddy_blocks(header* block) {
-    if(!block) return;
+    if(!block || IS_MMAP_ROOT(block)) return;
     
     size_t block_size = GET_SIZE(block);
     size_t offset = (char*)block - (char*)block->block_start;
     header* buddy = (header*)((char*)block->block_start + (offset ^ (block_size+ sizeof(header))));
     
+    if(block->block_start != buddy->block_start) return;
     if(!IS_FREE(buddy) || GET_SIZE(buddy) != block_size) return;
 
     remove_from_buddy_bucket(block);
