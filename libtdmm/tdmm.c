@@ -222,7 +222,7 @@ void *t_malloc(size_t size) {
     
     SET_FREE(block, 0);
     split_block(block, aligned_size);
-    requested_size += aligned_size;
+    requested_size += aligned_size - sizeof(header);
     return (char*)block + sizeof(header);
 }
 

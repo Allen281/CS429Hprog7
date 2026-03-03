@@ -20,9 +20,8 @@ def main():
                      label=policy.replace('_', ' '), color=colors[policy])
 
     ax1.set_xscale('log', base=2)
-    ax1.set_yscale('log', base=10)
     ax1.set_xlabel('Allocation Size (Bytes) [Log Scale]')
-    ax1.set_ylabel('Time (ns) [Log Scale]')
+    ax1.set_ylabel('Time (ns)')
     ax1.set_title('tmalloc() Speed vs. Allocation Size')
     ax1.legend()
     ax1.grid(True, which="both", ls="--", alpha=0.5)
@@ -36,9 +35,8 @@ def main():
                      linestyle='--', label=policy.replace('_', ' '), color=colors[policy])
 
     ax2.set_xscale('log', base=2)
-    ax2.set_yscale('log', base=10)
     ax2.set_xlabel('Allocation Size (Bytes) [Log Scale]')
-    ax2.set_ylabel('Time (ns) [Log Scale]')
+    ax2.set_ylabel('Time (ns)')
     ax2.set_title('tfree() Speed vs. Allocation Size')
     ax2.legend()
     ax2.grid(True, which="both", ls="--", alpha=0.5)
