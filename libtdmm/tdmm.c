@@ -7,14 +7,11 @@
 #include <unistd.h>
 #include <string.h>
 
-#define IS_MMAP_ROOT(x) ((x)->size & 2ULL)
-#define SET_MMAP_ROOT(x) ((x)->size |= 2ULL)
-
 #define IS_FREE(x) ((x)->size & 1)
 #define SET_FREE(x, y) ((x)->size = ((x)->size & ~1ULL) | (y))
 
 #define GET_SIZE(x) ((x)->size & ~3ULL)
-#define SET_SIZE(x, y) ((x)->size = (y) | ((x)->size & 3ULL))
+#define SET_SIZE(x, y) ((x)->size = (y) | IS_FREE(x))
 
 #define MAX_BUDDY_ORDER 24
 
@@ -80,6 +77,7 @@ static inline void split_block(header* block, size_t total_size) {
         
         SET_SIZE(block, total_size-sizeof(header));
         block->next = new_block;
+        if(new_block->next) new_block->next->prev = new_block;
         
         if(headers_end == block) headers_end = new_block;
         data_structure_overhead += sizeof(header);
@@ -124,9 +122,9 @@ static inline header* find_free_block(size_t size) {
                 if(current_strategy == FIRST_FIT) {
                     return current;
                 } else if(current_strategy == BEST_FIT) {
-                    if(rslt == NULL || s < GET_SIZE(rslt)) rslt = current;
+                    if(rslt == NULL || s < GET_SIZE(rslt) + sizeof(header)) rslt = current;
                 } else if(current_strategy == WORST_FIT) {
-                    if(rslt == NULL || s > GET_SIZE(rslt)) rslt = current;
+                    if(rslt == NULL || s > GET_SIZE(rslt) + sizeof(header)) rslt = current;
                 }
             }
             current = current->next;
@@ -155,6 +153,7 @@ void t_init(alloc_strat_e strat) {
 
     page_size = sysconf(_SC_PAGESIZE);
     header* initial_block = make_new_block(NULL, page_size);
+    data_structure_overhead = sizeof(header);
     
     if(strategy == BUDDY) {
         memset(buddy_lists, 0, sizeof(buddy_lists));
@@ -167,11 +166,11 @@ void t_init(alloc_strat_e strat) {
             
             add_to_buddy_bucket(buddy_block);
             current_size /= 2;
+            data_structure_overhead += sizeof(header);
         }
         
         set_block_state(initial_block, true, (current_size*2)-sizeof(header), NULL, NULL);
         initial_block->block_start = initial_block;
-        SET_MMAP_ROOT(initial_block);
         add_to_buddy_bucket(initial_block);
     } else {
         set_block_state(initial_block, true, page_size - sizeof(header), NULL, NULL);
@@ -179,8 +178,6 @@ void t_init(alloc_strat_e strat) {
     
     
     total_size = page_size;
-    data_structure_overhead = strategy == BUDDY ? sizeof(header)*(get_buddy_index(page_size)+1) : sizeof(header);
-    
     headers_start = initial_block;
     headers_end = initial_block;
     requested_size = 0;
@@ -204,7 +201,6 @@ void *t_malloc(size_t size) {
             new_block->block_start = new_block;
             
             block = new_block;
-            SET_MMAP_ROOT(block);
         } else {
             allocation_size = (aligned_size + page_size - 1) & ~(page_size - 1);
             void* endptr = (char*)headers_end + sizeof(header) + GET_SIZE(headers_end);
@@ -222,12 +218,12 @@ void *t_malloc(size_t size) {
     
     SET_FREE(block, 0);
     split_block(block, aligned_size);
-    requested_size += aligned_size - sizeof(header);
+    requested_size += GET_SIZE(block);
     return (char*)block + sizeof(header);
 }
 
 static void merge_buddy_blocks(header* block) {
-    if(!block || IS_MMAP_ROOT(block)) return;
+    if(!block || block == block->block_start) return;
     
     size_t block_size = GET_SIZE(block);
     size_t offset = (char*)block - (char*)block->block_start;
