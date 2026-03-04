@@ -24,6 +24,7 @@ static alloc_strat_e strategy;
 static long page_size;
 static size_t data_structure_overhead;
 static int mixed_counter;
+const static size_t header_size = sizeof(header);
 
 static inline header* make_new_block(void* ptr, size_t size){
     header* block = mmap(ptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
@@ -41,7 +42,7 @@ static inline int get_buddy_index(size_t size) {
 }
 
 static inline void remove_from_buddy_bucket(header* block) {
-    int index = get_buddy_index(GET_SIZE(block) + sizeof(header));
+    int index = get_buddy_index(GET_SIZE(block) + header_size);
     if(buddy_lists[index] == block) {
         buddy_lists[index] = block->next;
     }
@@ -51,7 +52,7 @@ static inline void remove_from_buddy_bucket(header* block) {
 }
 
 static inline void add_to_buddy_bucket(header* block) {
-    int index = get_buddy_index(GET_SIZE(block) + sizeof(header));
+    int index = get_buddy_index(GET_SIZE(block) + header_size);
     block->next = buddy_lists[index];
 
     if(buddy_lists[index]) buddy_lists[index]->prev = block;
@@ -69,32 +70,32 @@ static inline void set_block_state(header* block, int is_free, size_t size, head
 
 static inline void split_block(header* block, size_t total_size) {
     if(strategy != BUDDY) {
-        size_t block_size = GET_SIZE(block)+sizeof(header);
-        if (block_size < total_size + sizeof(header)) return;
+        size_t block_size = GET_SIZE(block)+header_size;
+        if (block_size < total_size + header_size) return;
         
         header* new_block = (header*)((char*)block + total_size);
-        set_block_state(new_block, true, block_size - total_size - sizeof(header), block->next, block);
+        set_block_state(new_block, true, block_size - total_size - header_size, block->next, block);
         
-        SET_SIZE(block, total_size-sizeof(header));
+        SET_SIZE(block, total_size-header_size);
         block->next = new_block;
         if(new_block->next) new_block->next->prev = new_block;
         
         if(headers_end == block) headers_end = new_block;
-        data_structure_overhead += sizeof(header);
+        data_structure_overhead += header_size;
     } else {
         remove_from_buddy_bucket(block);
         
-        size_t current_size = GET_SIZE(block) + sizeof(header);
+        size_t current_size = GET_SIZE(block) + header_size;
         
-        while(total_size <= (current_size >> 1) && (current_size >> 1) > sizeof(header)) {
+        while(total_size <= (current_size >> 1) && (current_size >> 1) > header_size) {
             current_size >>= 1;
             
             header* buddy_block = (header*)((char*)block + current_size);
-            set_block_state(buddy_block, true, current_size - sizeof(header), NULL, NULL);
+            set_block_state(buddy_block, true, current_size - header_size, NULL, NULL);
             buddy_block->block_start = block->block_start;
             
             add_to_buddy_bucket(buddy_block);
-            data_structure_overhead += sizeof(header);
+            data_structure_overhead += header_size;
         }
         
         SET_FREE(block, 0);
@@ -117,14 +118,14 @@ static inline header* find_free_block(size_t size) {
         header* rslt = NULL;
     
         while(current != NULL) {
-            size_t s = GET_SIZE(current) + sizeof(header);
+            size_t s = GET_SIZE(current) + header_size;
             if(IS_FREE(current) && s >= size) {
                 if(current_strategy == FIRST_FIT) {
                     return current;
                 } else if(current_strategy == BEST_FIT) {
-                    if(rslt == NULL || s < GET_SIZE(rslt) + sizeof(header)) rslt = current;
+                    if(rslt == NULL || s < GET_SIZE(rslt) + header_size) rslt = current;
                 } else if(current_strategy == WORST_FIT) {
-                    if(rslt == NULL || s > GET_SIZE(rslt) + sizeof(header)) rslt = current;
+                    if(rslt == NULL || s > GET_SIZE(rslt) + header_size) rslt = current;
                 }
             }
             current = current->next;
@@ -153,27 +154,27 @@ void t_init(alloc_strat_e strat) {
 
     page_size = sysconf(_SC_PAGESIZE);
     header* initial_block = make_new_block(NULL, page_size);
-    data_structure_overhead = sizeof(header);
+    data_structure_overhead = header_size;
     
     if(strategy == BUDDY) {
         memset(buddy_lists, 0, sizeof(buddy_lists));
         
         size_t current_size = page_size/2;
-        while(current_size > sizeof(header)) {
+        while(current_size > header_size) {
             header* buddy_block = (header*)((char*)initial_block + current_size);
-            set_block_state(buddy_block, true, current_size - sizeof(header), NULL, NULL);
+            set_block_state(buddy_block, true, current_size - header_size, NULL, NULL);
             buddy_block->block_start = initial_block;
             
             add_to_buddy_bucket(buddy_block);
             current_size /= 2;
-            data_structure_overhead += sizeof(header);
+            data_structure_overhead += header_size;
         }
         
-        set_block_state(initial_block, true, (current_size*2)-sizeof(header), NULL, NULL);
+        set_block_state(initial_block, true, (current_size*2)-header_size, NULL, NULL);
         initial_block->block_start = initial_block;
         add_to_buddy_bucket(initial_block);
     } else {
-        set_block_state(initial_block, true, page_size - sizeof(header), NULL, NULL);
+        set_block_state(initial_block, true, page_size - header_size, NULL, NULL);
     }
     
     
@@ -186,7 +187,7 @@ void t_init(alloc_strat_e strat) {
 void *t_malloc(size_t size) {
     if(size == 0) return NULL;
     
-    size_t aligned_size = (size+sizeof(header) + 3) & ~3;
+    size_t aligned_size = (size+header_size + 3) & ~3;
     
     header* block = find_free_block(aligned_size);
     if(block == NULL) {
@@ -197,37 +198,37 @@ void *t_malloc(size_t size) {
             allocation_size = (allocation_size + page_size - 1) & ~(page_size - 1);
             header* new_block = make_new_block(NULL, allocation_size);
             
-            set_block_state(new_block, true, allocation_size - sizeof(header), NULL, NULL);
+            set_block_state(new_block, true, allocation_size - header_size, NULL, NULL);
             new_block->block_start = new_block;
             
             block = new_block;
         } else {
             allocation_size = (aligned_size + page_size - 1) & ~(page_size - 1);
-            void* endptr = (char*)headers_end + sizeof(header) + GET_SIZE(headers_end);
+            void* endptr = (char*)headers_end + header_size + GET_SIZE(headers_end);
             header* new_block = make_new_block(endptr, allocation_size);
             
-            set_block_state(new_block, true, allocation_size - sizeof(header), NULL, headers_end);
+            set_block_state(new_block, true, allocation_size - header_size, NULL, headers_end);
             headers_end->next = new_block;
             headers_end = new_block;
             block = new_block;
         }
 
         total_size += allocation_size;
-        data_structure_overhead += sizeof(header);
+        data_structure_overhead += header_size;
     }
     
     SET_FREE(block, 0);
     split_block(block, aligned_size);
     requested_size += GET_SIZE(block);
-    return (char*)block + sizeof(header);
+    return (char*)block + header_size;
 }
 
-static void merge_buddy_blocks(header* block) {
+static inline void merge_buddy_blocks(header* block) {
     if(!block || block == block->block_start) return;
     
     size_t block_size = GET_SIZE(block);
     size_t offset = (char*)block - (char*)block->block_start;
-    header* buddy = (header*)((char*)block->block_start + (offset ^ (block_size+ sizeof(header))));
+    header* buddy = (header*)((char*)block->block_start + (offset ^ (block_size+ header_size)));
     
     if(block->block_start != buddy->block_start) return;
     if(!IS_FREE(buddy) || GET_SIZE(buddy) != block_size) return;
@@ -236,40 +237,40 @@ static void merge_buddy_blocks(header* block) {
     remove_from_buddy_bucket(buddy);
     
     if((size_t)block < (size_t)buddy) {
-        block->size += sizeof(header) + block_size;
+        block->size += header_size + block_size;
 
         add_to_buddy_bucket(block);
         merge_buddy_blocks(block);
     } else {
-        buddy->size += sizeof(header) + block_size;
+        buddy->size += header_size + block_size;
         buddy->next = block->next;
 
         add_to_buddy_bucket(buddy);
         merge_buddy_blocks(buddy);
     }
     
-    data_structure_overhead -= sizeof(header);
+    data_structure_overhead -= header_size;
 }
 
 static inline void merge_blocks(header* block){
     if(!block || !block->next) return;
-    if((char*)block->next != (char*)block + sizeof(header) + GET_SIZE(block)) return;
+    if((char*)block->next != (char*)block + header_size + GET_SIZE(block)) return;
     if(!IS_FREE(block) || !IS_FREE(block->next)) return;
     if(strategy == BUDDY && (GET_SIZE(block) != GET_SIZE(block->next))) return;
     
     if(block->next == headers_end) headers_end = block;
     
-    block->size += sizeof(header) + GET_SIZE(block->next);
+    block->size += header_size + GET_SIZE(block->next);
     block->next = block->next->next;
     if(block->next) block->next->prev = block;
     
-    data_structure_overhead -= sizeof(header);
+    data_structure_overhead -= header_size;
 }
 
 void t_free(void *ptr) {
    	if(ptr == NULL) return;
     
-    header* block = (header*)((char*)ptr - sizeof(header));
+    header* block = (header*)((char*)ptr - header_size);
     SET_FREE(block, 1);
     requested_size -= GET_SIZE(block);
     

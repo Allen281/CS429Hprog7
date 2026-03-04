@@ -2,47 +2,56 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
+csv_folder = "CSV Files"
+output_folder = "Graphs"
+
 def main():
     policies = ['First_Fit', 'Best_Fit', 'Worst_Fit', 'Mixed', 'Buddy']
     colors = {'First_Fit': 'blue', 'Best_Fit': 'green', 'Worst_Fit': 'red', 'Mixed': 'orange', 'Buddy': 'purple'}
 
     # =========================================================================
-    # GRAPH 1: Speed vs Size (Log-Log Scale)
+    # GRAPH 1a: tmalloc() Speed vs Size
     # =========================================================================
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
-
-    # Subplot 1: tmalloc() speed
+    fig, ax = plt.subplots(figsize=(8, 6))
     for policy in policies:
-        filename = f'speed_{policy}.csv'
+        filename = f'{csv_folder}/speed_{policy}.csv'
         if os.path.exists(filename):
             df = pd.read_csv(filename)
-            ax1.plot(df['Size(Bytes)'], df['MallocTime(ns)'], marker='o', markersize=4, 
-                     label=policy.replace('_', ' '), color=colors[policy])
+            ax.plot(df['Size(Bytes)'], df['MallocTime(ns)'], marker='o', markersize=4,
+                    label=policy.replace('_', ' '), color=colors[policy])
 
-    ax1.set_xscale('log', base=2)
-    ax1.set_xlabel('Allocation Size (Bytes) [Log Scale]')
-    ax1.set_ylabel('Time (ns)')
-    ax1.set_title('tmalloc() Speed vs. Allocation Size')
-    ax1.legend()
-    ax1.grid(True, which="both", ls="--", alpha=0.5)
-
-    # Subplot 2: tfree() speed
-    for policy in policies:
-        filename = f'speed_{policy}.csv'
-        if os.path.exists(filename):
-            df = pd.read_csv(filename)
-            ax2.plot(df['Size(Bytes)'], df['FreeTime(ns)'], marker='x', markersize=4, 
-                     linestyle='--', label=policy.replace('_', ' '), color=colors[policy])
-
-    ax2.set_xscale('log', base=2)
-    ax2.set_xlabel('Allocation Size (Bytes) [Log Scale]')
-    ax2.set_ylabel('Time (ns)')
-    ax2.set_title('tfree() Speed vs. Allocation Size')
-    ax2.legend()
-    ax2.grid(True, which="both", ls="--", alpha=0.5)
+    ax.set_xscale('log', base=2)
+    ax.set_xlabel('Allocation Size (Bytes) [Log Scale]')
+    ax.set_ylabel('Time (ns)')
+    ax.set_title('tmalloc() Speed vs. Allocation Size')
+    ax.legend()
+    ax.grid(True, which="both", ls="--", alpha=0.5)
 
     plt.tight_layout()
-    plt.savefig('speed_comparison.png')
+    plt.savefig(f'{output_folder}/tmalloc_speed.png')
+    plt.clf()
+    plt.close()
+
+    # =========================================================================
+    # GRAPH 1b: tfree() Speed vs Size
+    # =========================================================================
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for policy in policies:
+        filename = f'{csv_folder}/speed_{policy}.csv'
+        if os.path.exists(filename):
+            df = pd.read_csv(filename)
+            ax.plot(df['Size(Bytes)'], df['FreeTime(ns)'], marker='x', markersize=4,
+                    linestyle='--', label=policy.replace('_', ' '), color=colors[policy])
+
+    ax.set_xscale('log', base=2)
+    ax.set_xlabel('Allocation Size (Bytes) [Log Scale]')
+    ax.set_ylabel('Time (ns)')
+    ax.set_title('tfree() Speed vs. Allocation Size')
+    ax.legend()
+    ax.grid(True, which="both", ls="--", alpha=0.5)
+
+    plt.tight_layout()
+    plt.savefig(f'{output_folder}/tfree_speed.png')
     plt.clf()
     plt.close()
 
@@ -51,7 +60,7 @@ def main():
     # =========================================================================
     fig, ax = plt.subplots(figsize=(10, 6))
     for policy in policies:
-        filename = f'utilization_{policy}.csv'
+        filename = f'{csv_folder}/utilization_{policy}.csv'
         if os.path.exists(filename):
             df = pd.read_csv(filename)
             ax.plot(df['Time(ns)'], df['Utilization(%)'], alpha=0.7, 
@@ -64,14 +73,14 @@ def main():
     ax.grid(True, alpha=0.5)
     
     plt.tight_layout()
-    plt.savefig('utilization_comparison.png')
+    plt.savefig(f'{output_folder}/utilization_comparison.png')
     plt.clf()
     plt.close()
 
     # =========================================================================
     # GRAPH 3: Average Utilization Bar Chart
     # =========================================================================
-    avg_util_filename = 'average_utilization.csv'
+    avg_util_filename = f'{csv_folder}/average_utilization.csv'
     if os.path.exists(avg_util_filename):
         try:
             df_avg = pd.read_csv(avg_util_filename, header=None, names=['Policy', 'Utilization'])
@@ -91,7 +100,7 @@ def main():
             ax.grid(axis='y', linestyle='--', alpha=0.7)
             
             plt.tight_layout()
-            plt.savefig('average_utilization_bar.png')
+            plt.savefig(f'{output_folder}/average_utilization_bar.png')
             plt.clf()
             plt.close()
         except Exception:
@@ -100,7 +109,7 @@ def main():
     # =========================================================================
     # GRAPH 4: Data Structure Overhead Bar Chart
     # =========================================================================
-    overhead_filename = 'overhead.csv'
+    overhead_filename = f'{csv_folder}/overhead.csv'
     if os.path.exists(overhead_filename):
         try:
             df_over = pd.read_csv(overhead_filename, header=None, names=['Policy', 'Overhead'])
@@ -129,7 +138,7 @@ def main():
             ax.set_ylim(max(0, min_val - padding), max_val + padding)
             
             plt.tight_layout()
-            plt.savefig('overhead_bar.png')
+            plt.savefig(f'{output_folder}/overhead_bar.png')
             plt.clf()
             plt.close()
         except Exception:

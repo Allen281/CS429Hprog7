@@ -1,9 +1,11 @@
+#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "tdmm.h"
+#include "libtdmm/tdmm.h"
 
 #define NUM_OPERATIONS 10000
+#define CSV_FOLDER "CSV Files"
 
 double get_elapsed_time(struct timespec start, struct timespec end) {
     return (double)(end.tv_sec - start.tv_sec) * 1e9 + (double)(end.tv_nsec - start.tv_nsec);
@@ -13,8 +15,8 @@ void run_benchmarks_for_policy(alloc_strat_e strat, const char* policy_name, FIL
     char speed_filename[256];
     char util_filename[256];
 
-    sprintf(speed_filename, "speed_%s.csv", policy_name);
-    sprintf(util_filename, "utilization_%s.csv", policy_name);
+    sprintf(speed_filename, "%s/speed_%s.csv", CSV_FOLDER, policy_name);
+    sprintf(util_filename, "%s/utilization_%s.csv", CSV_FOLDER, policy_name);
 
     FILE* speed_graph = fopen(speed_filename, "w");
     FILE* util_graph = fopen(util_filename, "w");
@@ -96,8 +98,11 @@ int main() {
     int random = time(NULL);
     srand(random);
     
-    FILE* average_util = fopen("average_utilization.csv", "w");
-    FILE* overhead = fopen("overhead.csv", "w");
+    char avg_path[256], overhead_path[256];
+    sprintf(avg_path, "%s/average_utilization.csv", CSV_FOLDER);
+    sprintf(overhead_path, "%s/overhead.csv", CSV_FOLDER);
+    FILE* average_util = fopen(avg_path, "w");
+    FILE* overhead = fopen(overhead_path, "w");
 
     run_benchmarks_for_policy(FIRST_FIT, "First_Fit", average_util, overhead);
 
