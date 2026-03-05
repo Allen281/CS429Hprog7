@@ -1,7 +1,7 @@
 .PHONY: build run
 
 build:
-	gcc -g -Ilibtdmm main.c libtdmm/tdmm.c -o hw7
+	gcc -g -Ilibtdmm Testing/main.c libtdmm/tdmm.c -o hw7
 	@echo "build done"
 run:
 	./hw7

@@ -1,8 +1,7 @@
-#define _POSIX_C_SOURCE 199309L
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include "libtdmm/tdmm.h"
+#include "../libtdmm/tdmm.h"
 
 #define NUM_OPERATIONS 10000
 #define CSV_FOLDER "CSV Files"
@@ -94,10 +93,10 @@ void run_benchmarks_for_policy(alloc_strat_e strat, const char* policy_name, FIL
     printf("\n");
 }
 
-int main() {
+void run_all_benchmarks() {
     int random = time(NULL);
     srand(random);
-    
+
     char avg_path[256], overhead_path[256];
     sprintf(avg_path, "%s/average_utilization.csv", CSV_FOLDER);
     sprintf(overhead_path, "%s/overhead.csv", CSV_FOLDER);
@@ -111,16 +110,15 @@ int main() {
 
     srand(random);
     run_benchmarks_for_policy(WORST_FIT, "Worst_Fit", average_util, overhead);
-    
+
     srand(random);
     run_benchmarks_for_policy(MIXED, "Mixed", average_util, overhead);
-    
+
     srand(random);
     run_benchmarks_for_policy(BUDDY, "Buddy", average_util, overhead);
-    
+
     fclose(average_util);
     fclose(overhead);
 
     printf("Benchmarking complete. CSV files generated successfully.\n");
-    return 0;
 }
