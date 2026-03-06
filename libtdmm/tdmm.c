@@ -173,14 +173,16 @@ void t_init(alloc_strat_e strat) {
         set_block_state(initial_block, true, (current_size*2)-header_size, NULL, NULL);
         initial_block->block_start = initial_block;
         add_to_buddy_bucket(initial_block);
+        
+        headers_start = initial_block;
+        headers_end = initial_block + page_size;
     } else {
         set_block_state(initial_block, true, page_size - header_size, NULL, NULL);
+        headers_start = initial_block;
+        headers_end = initial_block;
     }
     
-    
     total_size = page_size;
-    headers_start = initial_block;
-    headers_end = initial_block;
     requested_size = 0;
 }
 
@@ -196,8 +198,9 @@ void *t_malloc(size_t size) {
         if(strategy == BUDDY) {
             allocation_size = (1 << (get_buddy_index(aligned_size) + 1));
             allocation_size = (allocation_size + page_size - 1) & ~(page_size - 1);
-            header* new_block = make_new_block(NULL, allocation_size);
+            header* new_block = make_new_block(headers_end, allocation_size);
             
+            headers_end = headers_end > new_block + allocation_size ? headers_end : new_block + allocation_size;
             set_block_state(new_block, true, allocation_size - header_size, NULL, NULL);
             new_block->block_start = new_block;
             
